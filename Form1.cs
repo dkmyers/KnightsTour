@@ -13,7 +13,7 @@ namespace TheKnightsTour
     public partial class Form1 : Form
     {
         private Rectangle RectDraw;
-        private board knight;
+        private board knight = new board(0, 3);
         public Form1()
         {
             InitializeComponent();
@@ -30,33 +30,37 @@ namespace TheKnightsTour
         }
         private void Form1_Paint(object sender, PaintEventArgs e)
         {
-            e.Dispose();
+            
             Graphics g = e.Graphics;
-            Pen p = new Pen(Color.Black); //Exterior
-            Brush b = new SolidBrush(Color.Black); //Interior
-
+            Pen backgroundPen = new Pen(Color.Black); //Exterior of boxes for chess board
+            Brush backgroundBrush = new SolidBrush(Color.Black); //Interior of boxes in chess board
+            Pen knightsTourPen = new Pen(Color.Red); //Draws path of knight in knight's tour
+            Brush knightsTourBrush = new SolidBrush(Color.Red);
             //Draw chess board background
 
-            for (int i = 0; i < 8; i++)
+            for (int yBGDraw = 0; yBGDraw < 8; yBGDraw++)
             {
-                RectDraw.Y = i * 100;
-                for (int j = 0; j < 8; j++)
+                RectDraw.Y = yBGDraw * 100;
+                for (int xBGDraw = 0; xBGDraw < 8; xBGDraw++)
                 {
-                    RectDraw.X = j * 100;
-                    g.DrawRectangle(p, RectDraw);
-                    if ((i + j) % 2 == 0)
+                    RectDraw.X = xBGDraw * 100;
+                    g.DrawRectangle(backgroundPen, RectDraw);
+                    if ((yBGDraw + xBGDraw) % 2 == 0)
                     {
-                        g.FillRectangle(b, RectDraw);
+                        g.FillRectangle(backgroundBrush, RectDraw);
                     }
                 }
             }
 
             //Draw Knight's Tour
-            for (int i = 0; i < 8; i++)
+            for (int yLoop = 0; yLoop < 8; yLoop++)
             {
-                for (int j = 0; j < 8; j++)
+                for (int xLoop = 0; xLoop < 8; xLoop++)
                 {
-                    //if board[i][j].CheckOpen: DrawText(board[i][j].getTag()
+                    if (!knight.checkSquare(yLoop,xLoop)) {
+                        g.DrawRectangle(knightsTourPen, xLoop*100, yLoop*100, 100, 100);
+                        g.FillRectangle(knightsTourBrush, xLoop * 100, yLoop * 100, 100, 100);
+                     }
                 }
             }
 
@@ -66,7 +70,9 @@ namespace TheKnightsTour
 
         private void NextMoveButton_Click(object sender, EventArgs e)
         {
-            
+            knight.theBoard[0, 3].close();
+            this.Refresh();
+            knight.checkNextMoves(0, 3);
         }
     }//End Class Form1
 
@@ -75,16 +81,14 @@ namespace TheKnightsTour
     {
         int x;
         int y;
-        int open;
+        bool open;
         char tag;
-        //Constructor with given X, Y coordinates
-        //The coordinates are pixel locations of top-left corner of a square
-        //Each square is 100x100 pixels in size
+        //Constructor with given Y, X coordinates, which denotes its location within the board's array
         public square(int givenY, int givenX)
         {
             this.y = givenY;
             this.x = givenX;
-            this.open = 1;
+            this.open = true;
         }
 
         //Changes the tag stored at this square, so Paint event knows what to paint
@@ -94,15 +98,25 @@ namespace TheKnightsTour
         }
 
         //sets the 'open' variable to 0, as the Knight has passed through this location before
-        void close()
+        public void close()
         {
-
+            this.open = false;
         }
 
         //Used in board object to find open squares
-        public int getOpen()
+        public bool getOpen()
         {
             return this.open;
+        }
+
+        public int getY()
+        {
+            return this.y;
+        }
+
+        public int getX()
+        {
+            return this.x;
         }
 
         //destructor
@@ -118,15 +132,17 @@ namespace TheKnightsTour
     public class board
     {
         //
-        private square[][] theBoard;
+        public square[,] theBoard = new square[8, 8];
         square currentPosition;
-        board()
+        public board(int startY, int startX)
         {
-            for (int y = 0; y < 7; y++)
+            this.currentPosition = new square(startY, startX);
+            for (int y = 0; y < 8; y++)
             {
-                for (int x = 0; x < 7; x++)
+                for (int x = 0; x < 8; x++)
                 {
-                    theBoard[y][x] = new square(y * 100, x * 100);
+                    Console.WriteLine($"Board constructor: {y} {x}");
+                    theBoard[y, x] = new square(y, x);
                 }
             }
         }
@@ -136,9 +152,129 @@ namespace TheKnightsTour
 
         }
 
-        public int checkSquare(int givenY, int givenX)
+        public bool checkSquare(int givenY, int givenX)
         {
-            return theBoard[givenY][givenX].getOpen();
+            return this.theBoard[givenY, givenX].getOpen();
         }
+
+        //Given a Y and X value, determines if those are within the range of the chess board
+        //Each comparison made in checkNextMoves() needed to ensure that the coordinates were valid for the board[][] object
+        //so that functionality was put into this method
+        bool checkIfValidSquare(int givenY, int givenX)
+        {
+            if (givenY > 7)
+            {
+                //Console.Write("Y > 7");
+                return false;
+            }
+
+            if (givenY < 0)
+            {
+                //Console.Write("Y < 0");
+                return false;
+            }
+
+            if (givenX > 7)
+            {
+                //Console.Write("X > 7");
+                return false;
+            }
+
+            if (givenX < 0)
+            {
+                //Console.Write("X < 0");
+                return false;
+            }
+
+            return true;
+        }
+
+        //From a given square, checks the 'open' value of all possible next moves the knight could take
+        //Returns an array of the squares which are open
+        public List<square> checkNextMoves(int givenY, int givenX)
+        {
+            List<square> validMoves = new List<square>();
+            int tempY, tempX;
+
+            //Check the two spots above the given square
+            tempY = givenY - 2;
+            tempX = givenX - 1;
+            if(checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            tempX = givenX + 1;
+            if (checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            //Check the two spots below the given square
+            tempY = givenY + 2;
+            tempX = givenX - 1;
+            if (checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            tempX = givenX + 1;
+            if (checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            //check the two spots to the left of the given square
+            tempY = givenY - 1;
+            tempX = givenX - 2;
+            if (checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            tempY = givenY + 1;
+            if (checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            //check the two spots to the right of the given square
+            tempY = givenY - 1;
+            tempX = givenX + 2;
+            if (checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            tempY = givenY + 1;
+            if (checkIfValidSquare(tempY, tempX) && theBoard[tempY, tempX].getOpen())
+            {
+                validMoves.Add(theBoard[tempY, tempX]);
+            }
+
+            Console.WriteLine($"{validMoves.Count()}");
+
+            for(int i = 0; i < validMoves.Count(); i++)
+            {
+                Console.WriteLine($"{i}: {validMoves[i].getY()}, {validMoves[i].getX()}");
+            }
+
+
+           
+
+            return validMoves;
+        }
+
+        //Given a list of squares, returns the index of the one that has the fewest possible next-moves
+            //Warnsdorff's Rule: The Knight's Tour can (generally) be completed by finding the next-move that has the fewest next-moves from that point
+        public square quantifyNextMoves(List<square> nextMoves)
+        {
+            square chosenNextMove = nextMoves[0];
+            //For each square in nextMoves:
+                //Run checkNextMoves() on that square, keeping track of the next-move that has the fewest next-moves
+                //Return the element in nextMoves with the fewest nextMoves
+            return chosenNextMove;
+        }
+
     }//End class Board
 }//End namespace
