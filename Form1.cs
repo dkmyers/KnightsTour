@@ -14,6 +14,8 @@ namespace TheKnightsTour
     {
         private Rectangle RectDraw;
         private board knight = new board(0, 3);
+        List<square> nextMoves = new List<square>();
+        int movesTaken = 0;
         public Form1()
         {
             InitializeComponent();
@@ -34,8 +36,8 @@ namespace TheKnightsTour
             Graphics g = e.Graphics;
             Pen backgroundPen = new Pen(Color.Black); //Exterior of boxes for chess board
             Brush backgroundBrush = new SolidBrush(Color.Black); //Interior of boxes in chess board
-            Pen knightsTourPen = new Pen(Color.Red); //Draws path of knight in knight's tour
-            Brush knightsTourBrush = new SolidBrush(Color.Red);
+            Pen knightsTourPen = new Pen(Color.Black,10); //Draws path of knight in knight's tour
+            Brush knightsTourBrush = new SolidBrush(Color.Blue);
             //Draw chess board background
 
             for (int yBGDraw = 0; yBGDraw < 8; yBGDraw++)
@@ -58,9 +60,9 @@ namespace TheKnightsTour
                 for (int xLoop = 0; xLoop < 8; xLoop++)
                 {
                     if (!knight.checkSquare(yLoop,xLoop)) {
-                        g.DrawRectangle(knightsTourPen, xLoop*100, yLoop*100, 100, 100);
-                        g.FillRectangle(knightsTourBrush, xLoop * 100, yLoop * 100, 100, 100);
-                     }
+                            g.FillRectangle(knightsTourBrush, (xLoop * 100) + 10, (yLoop * 100) + 10, 80, 80);  
+                        
+                    }
                 }
             }
 
@@ -70,10 +72,60 @@ namespace TheKnightsTour
 
         private void NextMoveButton_Click(object sender, EventArgs e)
         {
-            knight.theBoard[0, 3].close();
+            int nextX, nextY;
+            square targetNextMove;
+            if (knight.initialized)
+            {
+                nextMoves = knight.checkNextMoves(knight.currentPosition.getY(), knight.currentPosition.getX());
+                targetNextMove = knight.quantifyNextMoves(nextMoves);
+                knight.currentPosition = knight.theBoard[targetNextMove.getY(), targetNextMove.getX()];
+                knight.theBoard[knight.currentPosition.getY(), knight.currentPosition.getX()].close();
+            }
+            else
+            {
+                
+                try
+                {
+                    //Attempt to read user input for starting position
+                    nextY = Convert.ToInt32(yTextBox.Text);
+                    nextX = Convert.ToInt32(xTextBox.Text);
+                    //Ensure that these are valid inputs
+                    if (nextY < 0)
+                    {
+                        nextY = 0;
+                    }
+
+                    if (nextY > 7)
+                    {
+                        nextY = 7;
+                    }
+
+                    if (nextX < 0)
+                    {
+                        nextY = 0;
+                    }
+
+                    if (nextX > 7)
+                    {
+                        nextX = 7;
+                    }
+                }
+                catch
+                {
+                    //If no inputs are read, default to Y,X = 0,3
+                    nextY = 0;
+                    nextX = 3;
+                }
+                knight.currentPosition = knight.theBoard[nextY, nextX];
+                knight.theBoard[knight.currentPosition.getY(), knight.currentPosition.getX()].close();
+                
+                knight.initialized = true;
+            }
+            movesTaken += 1;
+            stepsLabel.Text = $"Number of Moves Taken: {movesTaken}";
             this.Refresh();
-            knight.checkNextMoves(0, 3);
         }
+
     }//End Class Form1
 
     //Square object contains info about one chess square
@@ -133,7 +185,8 @@ namespace TheKnightsTour
     {
         //
         public square[,] theBoard = new square[8, 8];
-        square currentPosition;
+        public square currentPosition;
+        public bool initialized = false;
         public board(int startY, int startX)
         {
             this.currentPosition = new square(startY, startX);
@@ -252,16 +305,6 @@ namespace TheKnightsTour
                 validMoves.Add(theBoard[tempY, tempX]);
             }
 
-            Console.WriteLine($"{validMoves.Count()}");
-
-            for(int i = 0; i < validMoves.Count(); i++)
-            {
-                Console.WriteLine($"{i}: {validMoves[i].getY()}, {validMoves[i].getX()}");
-            }
-
-
-           
-
             return validMoves;
         }
 
@@ -270,9 +313,22 @@ namespace TheKnightsTour
         public square quantifyNextMoves(List<square> nextMoves)
         {
             square chosenNextMove = nextMoves[0];
+            List<int> nextMoveNextMoves = new List<int>();
+            int indexOfChosenNextMove = 0;
             //For each square in nextMoves:
                 //Run checkNextMoves() on that square, keeping track of the next-move that has the fewest next-moves
                 //Return the element in nextMoves with the fewest nextMoves
+            for (int i = 0; i < nextMoves.Count; i++)
+            {
+                nextMoveNextMoves.Add(checkNextMoves(nextMoves[i].getY(), nextMoves[i].getX()).Count);
+                //Check if this is (so far) the nextMove with the fewest nextMoves
+                if(nextMoveNextMoves[i] < nextMoveNextMoves[indexOfChosenNextMove])
+                {
+                    indexOfChosenNextMove = i;
+                    chosenNextMove = nextMoves[i];
+                }
+            }
+
             return chosenNextMove;
         }
 
